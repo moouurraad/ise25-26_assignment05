@@ -20,6 +20,9 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import java.util.List;
 import java.util.Map;
 
+
+
+
 import static de.seuhd.campuscoffee.TestUtils.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -63,6 +66,14 @@ public class CucumberPosSteps {
     private List<PosDto> createdPosList;
     private PosDto updatedPos;
 
+    private PosDto getPosByName(String name) {
+        return createdPosList.stream()
+                .filter(pos -> pos.getName().equals(name))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("POS not found: " + name));
+    }
+
+
     /**
      * Register a Cucumber DataTable type for PosDto.
      * @param row the DataTable row to map to a PosDto object
@@ -93,6 +104,12 @@ public class CucumberPosSteps {
 
     // TODO: Add Given step for new scenario
 
+    @Given("I insert the following three POS")
+    public void i_insert_the_following_three_pos(List<PosDto> posList) {
+        createdPosList = createPos(posList);
+        assertThat(createdPosList).size().isEqualTo(3);
+    }
+
     // When -----------------------------------------------------------------------
 
     @When("I insert POS with the following elements")
@@ -102,6 +119,14 @@ public class CucumberPosSteps {
     }
 
     // TODO: Add When step for new scenario
+
+    @When("I update the description of POS {string} to {string}")
+    public void i_update_the_description_of_pos_to(String name, String newDescription) {
+        PosDto pos = getPosByName(name); // TestUtils içindeki yardımcı metod
+        pos.setDescription(newDescription);
+        updatePos(pos);                  // TestUtils içindeki metod ile güncelle
+        updatedPos = pos;
+    }
 
     // Then -----------------------------------------------------------------------
 
@@ -114,4 +139,30 @@ public class CucumberPosSteps {
     }
 
     // TODO: Add Then step for new scenario
+    @Then("the description of POS {string} should be {string}")
+    public void the_description_of_pos_should_be(String name, String expectedDescription) {
+        PosDto pos = getPosByName(name);
+        assertThat(pos.getDescription()).isEqualTo(expectedDescription);
+    }
+    public static List<PosDto> retrievePos() {
+        return RestAssured.given()
+                .contentType("application/json")
+                .get("/api/pos")
+                .then()
+                .statusCode(200)
+                .extract()
+                .body()
+                .jsonPath()
+                .getList(".", PosDto.class);
+    }
+
+    public static void updatePos(PosDto pos) {
+        RestAssured.given()
+                .contentType("application/json")
+                .body(pos)
+                .put("/api/pos/" + pos.getId())
+                .then()
+                .statusCode(200);
+    }
+
 }
